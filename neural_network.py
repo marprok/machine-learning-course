@@ -52,7 +52,8 @@ class NeuNet():
         self.activation_der = der
         self.train = []
         self.train_data = []
-        self.test = []
+        self.train_1hv = []
+        self.test = None
         self.inlen = 0
         self.w0 = None
     def readMnistData(self, path):
@@ -65,16 +66,25 @@ class NeuNet():
         print()
         print(self.train)
         #lines = []
+        
         for f in self.train[:1]: # read only the first training
+            num = int(f.split('train')[1][0])
+            self.train_1hv.append(np.array([1 if i == num else 0 for i in range(10)])) # create the one hot vector
+            #print(self.train_1hv)
+            #print('the number is ' + str(num))
             with open(join(path,f), 'r') as fl:
                 for line in fl:
                     self.train_data.append(list(map(int, line.split(' '))))
                     #lines.append(line.split(' '))
         #print(lines[3])
-
+        self.train_1hv = np.array([x for x in self.train_1hv])
+        print(self.train_1hv.shape)
+        print(self.train_1hv)
+        
         self.train_data = np.array([np.array(x) for x in self.train_data])
         self.train_data = self.train_data.astype(float) / 255 # normalize the data
-        self.train_data = np.hstack((np.ones((self.train_data.shape[0], 1)), self.train_data))  # +1 col at the begining of the array for the bias term
+        # the last column of the data matrix is the bias column
+        self.train_data = np.hstack((np.ones((self.train_data.shape[0], 1)), self.train_data))  # +1 col at the end of the array for the bias term
         print(self.train_data.shape)
         # now that we have read the training data, we can initialize the input layer
         self.inlen = len(self.train_data[0])
@@ -108,10 +118,16 @@ class NeuNet():
             # input to the softmax function
             final_out = softmax(temp)
             print(final_out)
+            print('cost: ',self.calculate_cost(final_out, self.train_1hv[0]))
             if j == 5:
                 break
             j += 1
-        
+            
+    def calculate_cost(self, y, t):
+        #print(y)
+        y = np.log(y)
+        #print(y)
+        return y.dot(t.transpose())
 if __name__ == '__main__':
     net = NeuNet(100,10, func3, func3der)
     #print(net.w0)
