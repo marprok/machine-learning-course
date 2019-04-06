@@ -112,6 +112,39 @@ class NeuNet():
         self.w0 = np.random.rand(self.hidlen,self.inlen) # the 2D array that contains the weights of the first part of the neural network
         self.w1 = np.random.rand(self.outlen,self.hidlen + 1) # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
 
+
+    def compute_gradients_cost(self, data_batch, hidden_out, batch_dot_w0, hidden_dot_w1, output, onehotvec,lamda = 0):
+        #Z = get_z(X,w1) # hidden_out
+
+        # The result of Z*w2
+        #z_w2 = Z.dot(w2.T) # hidden_dot_w1
+
+        #Y = softmax(z_w2) #output
+        # Compute the cost function to check convergence
+        max_error = np.max(hidden_dot_w1, axis=1)
+        Ew = np.sum(onehotvec * hidden_dot_w1) - np.sum(max_error) - \
+             np.sum(np.log(np.sum(np.exp(hidden_dot_w1 - np.array([max_error, ] * hidden_dot_w1.shape[1]).T), 1))) - \
+             (0.5 * lamda) * (np.sum(np.square(self.w0)) + np.sum(np.square(self.w1)))
+
+        # Calculate gradient for w1
+        grad_w1 = (onehotvec - output).T.dot(hidden_out) - lamda * self.w1
+        
+        # We remove the bias since z0 is not dependant by w1
+        w1_temp = np.copy(self.w1[:, 1:])
+        
+        # This is the result of the derivative of the activation function
+        der = self.activation_der(data_batch.dot(self.w0.T))
+        
+        temp = (onehotvec - output).dot(w1_temp) * der
+        
+        # Calculate gradient for w0
+        grad_w0 = temp.T.dot(data_batch) - lamda*self.w0
+        
+        
+        return Ew, grad_w0, grad_w1
+
+
+    
     def feed_forward(self):
 
         if self.batch > len(self.train_data):
@@ -124,13 +157,20 @@ class NeuNet():
             print('begin: ' + str(begin) +'\nend: ' + str(end))
             data_batch = self.train_data[begin:end]
             data_batch = np.array([x for x in data_batch])
-            temp = data_batch.dot(self.w0.T)
-            hidden_leyer_out = self.activation(temp)
+            temp0 = data_batch.dot(self.w0.T)
+            hidden_leyer_out = self.activation(temp0)
             hidden_leyer_out = np.hstack((np.ones((hidden_leyer_out.shape[0], 1)), hidden_leyer_out))  # +1 col at the start of the array for the bias term
             
-            temp = hidden_leyer_out.dot(self.w1.T)
-            final_out = softmax(temp)
-            print('cost: ',self.calculate_cost(final_out, np.array(self.train_1hv[begin:end])))
+            temp1 = hidden_leyer_out.dot(self.w1.T)
+            final_out = softmax(temp1)
+            hot_vec = np.array(self.train_1hv[begin:end])
+            #cost = self.calculate_cost(final_out, hot_vec)
+            #print('cost: ',cost)
+
+            error, dw0, dw1 = self.compute_gradients_cost(data_batch, hidden_leyer_out, temp0, temp1, final_out, hot_vec,lamda = 0)
+            self.w0 += 0.000001*dw0
+            self.w1 += 0.000001*dw1
+            print('cost: ',error)
             '''for current in range(begin, end):
                 input_vec = np.array(self.train_data[current], ndmin=2)
                 
