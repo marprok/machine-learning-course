@@ -113,11 +113,13 @@ class NeuNet():
         self.w1 = np.random.rand(self.outlen,self.hidlen + 1) # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
 
     def feed_forward(self):
+
         if self.batch > len(self.train_data):
             print("ERROR: batch size is greater than the total number of training data")
             return None
         
         begin, end = 0, self.batch
+
         while begin < end:
             print('begin: ' + str(begin) +'\nend: ' + str(end))
             data_batch = self.train_data[begin:end]
@@ -195,7 +197,8 @@ class NeuNet():
         #print(y)
         y = np.log(y)
         #print(y)
-        return y.dot(t.transpose())
+        return np.sum(y.dot(t.transpose()))
+    
 if __name__ == '__main__':
     net = NeuNet(100,10, func3, func3der)
     #print(net.w0)
