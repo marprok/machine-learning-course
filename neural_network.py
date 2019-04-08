@@ -125,7 +125,7 @@ class NeuNet():
         Ew = np.sum(onehotvec * hidden_dot_w1) - np.sum(max_error) - \
              np.sum(np.log(np.sum(np.exp(hidden_dot_w1 - np.array([max_error, ] * hidden_dot_w1.shape[1]).T), 1))) - \
              (0.5 * lamda) * (np.sum(np.square(self.w0)) + np.sum(np.square(self.w1)))
-
+        
         # Calculate gradient for w1
         grad_w1 = (onehotvec - output).T.dot(hidden_out) - lamda * self.w1
         
@@ -232,12 +232,16 @@ class NeuNet():
             if j == 5:
                 break
             j += 1'''
-            
+
+
+        [1,2,3] 
+        [3,4,54] 
+        
     def calculate_cost(self, y, t):
         #print(y)
         y = np.log(y)
         #print(y)
-        return np.sum(y.dot(t.transpose()))
+        return np.sum(y*(t))
     
 if __name__ == '__main__':
     net = NeuNet(100,10, func3, func3der)
