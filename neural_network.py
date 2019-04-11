@@ -69,10 +69,12 @@ class NeuNet():
     
     def train_net(self, epochs):
         for i in range(epochs):
-            print('epoch: ',i)
+
             # first we shuffle the training data
             self.shuffle_data()
-            self.feed_forward()
+            cost = self.feed_forward()
+            print('cost: ',cost,' epoch = ', i)
+
             
         
     def readMnistData(self, path):
@@ -86,7 +88,7 @@ class NeuNet():
         print(self.train)
         #lines = []
         
-        for f in self.train[:1]: # read only the first training
+        for f in self.train[:]: # read only the first training
             num = int(f.split('train')[1][0])
             
             #print(self.train_1hv)
@@ -109,7 +111,7 @@ class NeuNet():
         # now that we have read the training data, we can initialize the input layer
         self.inlen = len(self.train_data[0])
         #print('inlen: ' + str(self.inlen))
-        self.w0 = np.random.rand(self.hidlen,self.inlen) # the 2D array that contains the weights of the first part of the neural network
+        self.w0 = np.random.normal(0,1/np.sqrt(self.inlen),(self.hidlen,self.inlen)) # the 2D array that contains the weights of the first part of the neural network
         self.w1 = np.random.rand(self.outlen,self.hidlen + 1) # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
 
 
@@ -152,9 +154,9 @@ class NeuNet():
             return None
         
         begin, end = 0, self.batch
-
+        cost = None
         while begin < end:
-            print('begin: ' + str(begin) +'\nend: ' + str(end))
+            #print('begin: ' + str(begin) +'\nend: ' + str(end))
             data_batch = self.train_data[begin:end]
             data_batch = np.array([x for x in data_batch])
             temp0 = data_batch.dot(self.w0.T)
@@ -164,13 +166,15 @@ class NeuNet():
             temp1 = hidden_leyer_out.dot(self.w1.T)
             final_out = softmax(temp1)
             hot_vec = np.array(self.train_1hv[begin:end])
-            #cost = self.calculate_cost(final_out, hot_vec)
+
             #print('cost: ',cost)
 
-            error, dw0, dw1 = self.compute_gradients_cost(data_batch, hidden_leyer_out, temp0, temp1, final_out, hot_vec,lamda = 0)
-            self.w0 += 0.000001*dw0
-            self.w1 += 0.000001*dw1
-            print('cost: ',error)
+            error, dw0, dw1 = self.compute_gradients_cost(data_batch, hidden_leyer_out, temp0, temp1, final_out, hot_vec,lamda = 0.01)
+            self.w0 += 0.005*dw0
+            self.w1 += 0.005*dw1
+            #print('error: ',error)
+            cost = self.calculate_cost(final_out, hot_vec)
+            #print('cost: ', cost)
             '''for current in range(begin, end):
                 input_vec = np.array(self.train_data[current], ndmin=2)
                 
@@ -232,17 +236,50 @@ class NeuNet():
             if j == 5:
                 break
             j += 1'''
+        return cost
 
-
-        [1,2,3] 
-        [3,4,54] 
-        
     def calculate_cost(self, y, t):
         #print(y)
         y = np.log(y)
         #print(y)
-        return np.sum(y*(t))
-    
+        l = 0.01
+        return np.sum(y*(t)) - l/2 * (np.linalg.norm(self.w0, 'fro')**2 + np.linalg.norm(self.w1, 'fro')**2)
+
+    '''def gradcheck_softmax(self, Winit, X, t, lamda):
+
+        W = np.random.rand(*Winit.shape)
+        epsilon = 1e-6
+
+        _list = np.random.randint(X.shape[0], size=5)
+        x_sample = np.array(X[_list, :])
+        t_sample = np.array(t[_list, :])
+
+        Ew, gradEw = cost_grad_softmax(W, x_sample, t_sample, lamda)
+
+        print("gradEw shape: ", gradEw.shape)
+
+        numericalGrad = np.zeros(gradEw.shape)
+        # Compute all numerical gradient estimates and store them in
+        # the matrix numericalGrad
+        for k in range(numericalGrad.shape[0]):
+            for d in range(numericalGrad.shape[1]):
+                # add epsilon to the w[k,d]
+                w_tmp = np.copy(W)
+                w_tmp[k, d] += epsilon
+                e_plus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+
+                # subtract epsilon to the w[k,d]
+                w_tmp = np.copy(W)
+                w_tmp[k, d] -= epsilon
+                e_minus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+
+                # approximate gradient ( E[ w[k,d] + theta ] - E[ w[k,d] - theta ] ) / 2*e
+                numericalGrad[k, d] = (e_plus - e_minus) / (2 * epsilon)
+
+        return (gradEw, numericalGrad)
+
+'''
+
 if __name__ == '__main__':
     net = NeuNet(100,10, func3, func3der)
     #print(net.w0)
@@ -258,5 +295,5 @@ if __name__ == '__main__':
     print(func3der(x))
     '''
     #print(softmax(np.array( [ [10,20,30,40], [20,50,45,45], [983,39,57,752], [574,575,597,525] ] )))
-    net.readMnistData('/home/marios/Downloads/mnistdata')
-    net.train_net(2)
+    net.readMnistData('/home/p3150141/Downloads/')
+    net.train_net(100)
