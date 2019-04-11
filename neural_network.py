@@ -245,22 +245,27 @@ class NeuNet():
         l = 0.01
         return np.sum(y*(t)) - l/2 * (np.linalg.norm(self.w0, 'fro')**2 + np.linalg.norm(self.w1, 'fro')**2)
 
-    '''def gradcheck_softmax(self, Winit, X, t, lamda):
+    def gradcheck_softmax(self, lamda):
 
-        W = np.random.rand(*Winit.shape)
+
         epsilon = 1e-6
 
-        _list = np.random.randint(X.shape[0], size=5)
-        x_sample = np.array(X[_list, :])
-        t_sample = np.array(t[_list, :])
+        _list = np.random.randint(self.train_data.shape[0], size=5)
+        x_sample = np.array(self.train_data.shape[0][_list, :])
+        t_sample = np.array(self.train_1hv.shape[0][_list, :])
+        # split the training for each batch into two methods 1 feed_forward and one back_propagate for a single epoch
+        # then feed forward the x_sample and compute the gradients wihtout updating the weights
+        Ew, gradW0, gradW1 = self.compute_gradients_cost(data_batch, hidden_leyer_out, temp0, temp1, final_out, hot_vec,lamda = 0.01)
+        # then create two new matrixes w0',w1'
 
-        Ew, gradEw = cost_grad_softmax(W, x_sample, t_sample, lamda)
-
+        cost = self.calculate_cost()
         print("gradEw shape: ", gradEw.shape)
 
         numericalGrad = np.zeros(gradEw.shape)
         # Compute all numerical gradient estimates and store them in
         # the matrix numericalGrad
+
+        # loop for w0
         for k in range(numericalGrad.shape[0]):
             for d in range(numericalGrad.shape[1]):
                 # add epsilon to the w[k,d]
@@ -275,10 +280,26 @@ class NeuNet():
 
                 # approximate gradient ( E[ w[k,d] + theta ] - E[ w[k,d] - theta ] ) / 2*e
                 numericalGrad[k, d] = (e_plus - e_minus) / (2 * epsilon)
+        # loop for w1
+        for k in range(numericalGrad.shape[0]): # loop for each element
+            for d in range(numericalGrad.shape[1]):
+                # add epsilon to the w[k,d]
+                w_tmp = np.copy(W)
+                w_tmp[k, d] += epsilon
+                #feed forward and calculate the cost without updating
+                e_plus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+
+                # subtract epsilon to the w[k,d]
+                w_tmp = np.copy(W) # reset the W matrix to it's original state
+                w_tmp[k, d] -= epsilon
+                e_minus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+
+                # approximate gradient ( E[ w[k,d] + theta ] - E[ w[k,d] - theta ] ) / 2*e
+                numericalGrad[k, d] = (e_plus - e_minus) / (2 * epsilon)
+
 
         return (gradEw, numericalGrad)
 
-'''
 
 if __name__ == '__main__':
     net = NeuNet(100,10, func3, func3der)
