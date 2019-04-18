@@ -77,6 +77,7 @@ class NeuNet():
 
             begin, end = 0, self.batch
             cost = None
+
             while begin < end:
                 data_batch = self.train_data[begin:end]
                 data_batch = np.array([x for x in data_batch])
@@ -135,7 +136,7 @@ class NeuNet():
         #print('inlen: ' + str(self.inlen))
         self.w0 = np.random.normal(0,1/np.sqrt(self.inlen),(self.hidlen,self.inlen)) # the 2D array that contains the weights of the first part of the neural network
         self.w1 = np.random.rand(self.outlen,self.hidlen + 1) # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
-
+        self.gradient_check(self.w0, self.w1, self.train_data, self.train_1hv, 0.01)
 
     def compute_gradients_cost(self, data_batch, hidden_out, output, onehotvec,lamda = 0):
         #Z = get_z(X,w1) # hidden_out
@@ -192,60 +193,68 @@ class NeuNet():
         l = 0.01
         return np.sum(y*(t)) - l/2 * (np.linalg.norm(self.w0, 'fro')**2 + np.linalg.norm(self.w1, 'fro')**2)
 
-    '''def gradcheck_softmax(self, lamda):
-
-
+    def gradient_check(self, w1_init, w2_init, X, t, lamda):
+        w0 = np.random.rand(*w1_init.shape)
+        w1 = np.random.rand(*w2_init.shape)
         epsilon = 1e-6
+        _list = np.random.randint(X.shape[0], size=5)
+        x_sample = np.array(X[_list, :])
+        t_sample = np.array(t[_list, :])
 
-        _list = np.random.randint(self.train_data.shape[0], size=5)
-        x_sample = np.array(self.train_data.shape[0][_list, :])
-        t_sample = np.array(self.train_1hv.shape[0][_list, :])
-        # split the training for each batch into two methods 1 feed_forward and one back_propagate for a single epoch
-        # then feed forward the x_sample and compute the gradients wihtout updating the weights
-        Ew, gradW0, gradW1 = self.compute_gradients_cost(data_batch, hidden_leyer_out, temp0, temp1, final_out, hot_vec,lamda = 0.01)
-        # then create two new matrixes w0',w1'
+        w0t = self.w0
+        w1t = self.w1
 
-        cost = self.calculate_cost()
-        print("gradEw shape: ", gradEw.shape)
+        cost, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
+        gradw0, gradw1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
 
-        numericalGrad = np.zeros(gradEw.shape)
+        numericalGrad = np.zeros(gradw0.shape)
         # Compute all numerical gradient estimates and store them in
         # the matrix numericalGrad
-
-        # loop for w0
+        print(gradw0.shape, gradw1.shape, w0.shape, w1.shape)
         for k in range(numericalGrad.shape[0]):
             for d in range(numericalGrad.shape[1]):
-                # add epsilon to the w[k,d]
-                w_tmp = np.copy(W)
+                # Calculate W1 gradient
+                w_tmp = np.copy(w0)
                 w_tmp[k, d] += epsilon
-                e_plus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+                self.w0 = w_tmp;
+                costeplus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
+                #gr0, gr1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
 
-                # subtract epsilon to the w[k,d]
-                w_tmp = np.copy(W)
+                w_tmp = np.copy(w0)
                 w_tmp[k, d] -= epsilon
-                e_minus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+                self.w0 = w_tmp;
+                costeminus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
+                #gr0, gr1= self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
 
-                # approximate gradient ( E[ w[k,d] + theta ] - E[ w[k,d] - theta ] ) / 2*e
-                numericalGrad[k, d] = (e_plus - e_minus) / (2 * epsilon)
-        # loop for w1
-        for k in range(numericalGrad.shape[0]): # loop for each element
+                #e_minus, _, _ = compute_gradients_cost(t_sample, x_sample, w_tmp, w2, lamda)
+                numericalGrad[k, d] = (costeplus - costeminus) / (2 * epsilon)
+
+        # Absolute norm
+        print("The difference estimate for gradient of w0 is : ", np.max(np.abs(gradw0 - numericalGrad)))
+        self.w0 = w0t
+        numericalGrad = np.zeros(gradw1.shape)
+        # Compute all numerical gradient estimates and store them in
+        # the matrix numericalGrad
+        for k in range(numericalGrad.shape[0]):
             for d in range(numericalGrad.shape[1]):
-                # add epsilon to the w[k,d]
-                w_tmp = np.copy(W)
+                # Calculate W1 gradient
+                w_tmp = np.copy(w1)
                 w_tmp[k, d] += epsilon
-                #feed forward and calculate the cost without updating
-                e_plus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
+                #self.w1 = w_tmp;
+                costeplus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
+                #gr0, gr1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
 
-                # subtract epsilon to the w[k,d]
-                w_tmp = np.copy(W) # reset the W matrix to it's original state
+                w_tmp = np.copy(w1)
                 w_tmp[k, d] -= epsilon
-                e_minus, _ = cost_grad_softmax(w_tmp, x_sample, t_sample, lamda)
 
-                # approximate gradient ( E[ w[k,d] + theta ] - E[ w[k,d] - theta ] ) / 2*e
-                numericalGrad[k, d] = (e_plus - e_minus) / (2 * epsilon)
+                #self.w1 = w_tmp;
+                costminus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
+                #gr0, gr1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
 
+                numericalGrad[k, d] = (costeplus - costminus) / (2 * epsilon)
 
-        return (gradEw, numericalGrad)'''
+        # Absolute norm
+        print("The difference estimate for gradient of w1 is : ", np.max(np.abs(gradw1 - numericalGrad)))
 
 
 if __name__ == '__main__':
@@ -264,4 +273,4 @@ if __name__ == '__main__':
     '''
     #print(softmax(np.array( [ [10,20,30,40], [20,50,45,45], [983,39,57,752], [574,575,597,525] ] )))
     net.readMnistData('/home/p3150141/Downloads/mnistdata')
-    net.train_net(100)
+    #net.train_net(100)
