@@ -73,6 +73,7 @@ class NeuNet():
     
     def train_net(self, epochs):
         self.epochs = epochs
+        prevcost = 0
         for i in range(epochs):
             # first we shuffle the training data
             self.train_data, self.train_1hv = self.shuffle_data(self.train_data, self.train_1hv)
@@ -100,11 +101,84 @@ class NeuNet():
                 if end > len(self.train_data):
                     end = len(self.train_data)
 
-            print('cost: ',cost,' epoch = ', i)
+            #if max_cost < cost:
+
+             #   max_cost = cost
+            #diff = np.abs(np.abs(cost) - np.abs(prevcost))
+            #print(diff)
             if cost > -3.0:
+                print('final cost: ', cost, ' epoch: ', i)
                 break
+            #prevcost = cost
+            print('cost: ',cost,' epoch = ', i)
+
+    def unpickle(self, file):
+        import pickle
+        with open(file, 'rb') as fo:
+            dict = pickle.load(fo, encoding='latin1')
+        return dict
+
+    def readCIFAR10Data(self, file):
+
+        files = [f for f in listdir(file) if isfile(join(file, f))]
+        #print(files)
+        self.train = [file + '/' + f for f in files if 'data_batch' in f]
+        self.test = [file + '/' + f for f in files if 'test_batch' in f]
+
+        #print(self.train)
+        #print(self.test)
+
+        for f in self.train:
+            dict = self.unpickle(f)
+            temp = dict['data']
+            for line in temp:
+                #print(line)
+                self.train_data.append(line)
+            #print(dict['data'])
+            #print(dict['labels'])
+
+            for label in dict['labels']:
+                self.train_1hv.append(
+                       np.array([1 if i == label else 0 for i in range(10)]))  # create the one hot vector
 
 
+        self.train_1hv = np.array([x for x in self.train_1hv])
+        self.train_data = np.array([np.array(x) for x in self.train_data])
+        self.train_data = self.train_data.astype(float) / 255  # normalize the data
+        # the last column of the data matrix is the bias column
+        self.train_data = np.hstack((np.ones((self.train_data.shape[0], 1)), self.train_data))
+        print(self.train_data.shape)
+        # now that we have read the training data, we can initialize the input layer
+        self.inlen = len(self.train_data[0])
+        # print('inlen: ' + str(self.inlen))
+        self.w0 = np.random.normal(0, 1 / np.sqrt(self.inlen), (
+        self.hidlen, self.inlen))  # the 2D array that contains the weights of the first part of the neural network
+        self.w1 = np.random.rand(self.outlen,
+                                 self.hidlen + 1)  # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
+
+
+        for f in self.test:
+            dict = self.unpickle(f)
+            temp = dict['data']
+            for line in temp:
+                #print(line)
+                self.test_data.append(line)
+            #print(dict['data'])
+            print(dict['labels'])
+
+            for label in dict['labels']:
+                self.test_1hv.append(
+                       np.array([1 if i == label else 0 for i in range(10)]))  # create the one hot vector
+                print(np.array([1 if i == label else 0 for i in range(10)]))
+        self.test_1hv = np.array([x for x in self.test_1hv])
+        self.test_data = np.array([np.array(x) for x in self.test_data])
+        self.test_data = self.test_data.astype(float) / 255  # normalize the data
+        # the last column of the data matrix is the bias column
+        self.test_data = np.hstack((np.ones((self.test_data.shape[0], 1)),
+                                    self.test_data))  # +1 col at the start of the array for the bias term
+        print(self.test_data.shape)
+        print(self.w0.shape)
+        print(self.w1.shape)
 
         
     def readMnistData(self, path):
@@ -321,9 +395,10 @@ if __name__ == '__main__':
     print(func3der(x))
     '''
     #print(softmax(np.array( [ [10,20,30,40], [20,50,45,45], [983,39,57,752], [574,575,597,525] ] )))
+    #net.readCIFAR10Data('C:/Users/Alexandros/Downloads/cifar-10-python/cifar-10-batches-py')
+    #net.train_net(100)
     net.readMnistData('C:/Users/Alexandros/Downloads/mnistdata')
     net.train_net(100)
 
     net.testNet()
-
 
