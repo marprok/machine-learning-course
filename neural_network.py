@@ -54,23 +54,28 @@ class NeuNet():
         self.train = []
         self.train_data = []
         self.train_1hv = []
-        self.test = None
+
+        self.test = []
+        self.test_data = []
+        self.test_1hv = []
         self.inlen = 0
         self.w0 = None
         self.batch = batch
+        self.epochs = None
 
-    def shuffle_data(self):
+    def shuffle_data(self, data, hotvec):
         # zip the one hot vector and the training data together
-        temp = list(zip(self.train_data, self.train_1hv))
+        temp = list(zip(data, hotvec))
         # shuffle them
         shuffle(temp)
         # unzip
-        self.train_data, self.train_1hv = zip(*temp)
+        return zip(*temp)
     
     def train_net(self, epochs):
+        self.epochs = epochs
         for i in range(epochs):
             # first we shuffle the training data
-            self.shuffle_data()
+            self.train_data, self.train_1hv = self.shuffle_data(self.train_data, self.train_1hv)
             if self.batch > len(self.train_data):
                 print("ERROR: batch size is greater than the total number of training data")
                 return None
@@ -85,7 +90,7 @@ class NeuNet():
 
                 # print('begin: ' + str(begin) +'\nend: ' + str(end))
                 cost, hidden_out, final_out = self.feed_forward(data_batch, hot_vec)
-                dw0, dw1 = self.compute_gradients_cost(data_batch,hidden_out,final_out,hot_vec, 0.01)
+                dw0, dw1 = self.computeGrads(data_batch, hidden_out, final_out, hot_vec, 0.01)
 
                 self.w0 += 0.005*dw0
                 self.w1 += 0.005*dw1
@@ -96,6 +101,8 @@ class NeuNet():
                     end = len(self.train_data)
 
             print('cost: ',cost,' epoch = ', i)
+            if cost > -3.0:
+                break
 
 
 
@@ -110,6 +117,28 @@ class NeuNet():
         print()
         print(self.train)
         #lines = []
+
+        for f in self.test[:]:  # read only the first training
+            num = int(f.split('test')[1][0])
+
+            with open(join(path, f), 'r') as fl:
+                for line in fl:
+                    self.test_data.append(list(map(int, line.split(' '))))
+                    self.test_1hv.append(
+                        np.array([1 if i == num else 0 for i in range(10)]))  # create the one hot vector
+                    # lines.append(line.split(' '))
+            # print(lines[3])
+        self.test_1hv = np.array([x for x in self.test_1hv])
+        # print(self.train_1hv.shape)
+        # print(self.train_1hv)
+
+        self.test_data = np.array([np.array(x) for x in self.test_data])
+        self.test_data = self.test_data.astype(float) / 255  # normalize the data
+        # the last column of the data matrix is the bias column
+        self.test_data = np.hstack((np.ones((self.test_data.shape[0], 1)),
+                                     self.test_data))  # +1 col at the start of the array for the bias term
+        print(self.test_data.shape)
+
         
         for f in self.train[:]: # read only the first training
             num = int(f.split('train')[1][0])
@@ -136,21 +165,11 @@ class NeuNet():
         #print('inlen: ' + str(self.inlen))
         self.w0 = np.random.normal(0,1/np.sqrt(self.inlen),(self.hidlen,self.inlen)) # the 2D array that contains the weights of the first part of the neural network
         self.w1 = np.random.rand(self.outlen,self.hidlen + 1) # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
-        self.gradient_check(self.w0, self.w1, self.train_data, self.train_1hv, 0.01)
 
-    def compute_gradients_cost(self, data_batch, hidden_out, output, onehotvec,lamda = 0):
-        #Z = get_z(X,w1) # hidden_out
+        # gradient check
+        #self.gradCheck(self.train_data, self.train_1hv)
 
-        # The result of Z*w2
-        #z_w2 = Z.dot(w2.T) # hidden_dot_w1
-
-        #Y = softmax(z_w2) #output
-        # Compute the cost function to check convergence
-        #max_error = np.max(hidden_dot_w1, axis=1)
-        #Ew = np.sum(onehotvec * hidden_dot_w1) - np.sum(max_error) - \
-             #np.sum(np.log(np.sum(np.exp(hidden_dot_w1 - np.array([max_error, ] * hidden_dot_w1.shape[1]).T), 1))) - \
-             #(0.5 * lamda) * (np.sum(np.square(self.w0)) + np.sum(np.square(self.w1)))
-        
+    def computeGrads(self, data_batch, hidden_out, output, onehotvec, lamda = 0):
         # Calculate gradient for w1
         grad_w1 = (onehotvec - output).T.dot(hidden_out) - lamda * self.w1
         
@@ -169,7 +188,6 @@ class NeuNet():
         return grad_w0, grad_w1
 
 
-    # should return the cost
     def feed_forward(self, data_batch, hot_vec):
 
         temp0 = data_batch.dot(self.w0.T)
@@ -193,69 +211,100 @@ class NeuNet():
         l = 0.01
         return np.sum(y*(t)) - l/2 * (np.linalg.norm(self.w0, 'fro')**2 + np.linalg.norm(self.w1, 'fro')**2)
 
-    def gradient_check(self, w1_init, w2_init, X, t, lamda):
-        w0 = np.random.rand(*w1_init.shape)
-        w1 = np.random.rand(*w2_init.shape)
-        epsilon = 1e-6
-        _list = np.random.randint(X.shape[0], size=5)
-        x_sample = np.array(X[_list, :])
-        t_sample = np.array(t[_list, :])
+    def gradCheck(self, xarg, targ):
+        w0 = self.w0
+        w1 = self.w1
+        e = 1e-6
+        samples = np.random.randint(xarg.shape[0], size=5)
+        x = np.array(xarg[samples, :])
+        t = np.array(targ[samples, :])
 
         w0t = self.w0
-        w1t = self.w1
 
-        cost, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
-        gradw0, gradw1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
+        cost, hidden_out, final_out = self.feed_forward(x, t)
+        gradw0, gradw1 = self.computeGrads(x, hidden_out, final_out, t, 0.01)
 
-        numericalGrad = np.zeros(gradw0.shape)
-        # Compute all numerical gradient estimates and store them in
-        # the matrix numericalGrad
+        # numeric stores all numerical gradients
+        numeric = np.zeros(gradw0.shape)
         print(gradw0.shape, gradw1.shape, w0.shape, w1.shape)
-        for k in range(numericalGrad.shape[0]):
-            for d in range(numericalGrad.shape[1]):
-                # Calculate W1 gradient
+        for k in range(numeric.shape[0]):
+            for d in range(numeric.shape[1]):
                 w_tmp = np.copy(w0)
-                w_tmp[k, d] += epsilon
+                w_tmp[k, d] += e
                 self.w0 = w_tmp;
-                costeplus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
-                #gr0, gr1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
+                costeplus, hidden_out, final_out = self.feed_forward(x, t)
 
                 w_tmp = np.copy(w0)
-                w_tmp[k, d] -= epsilon
+                w_tmp[k, d] -= e
                 self.w0 = w_tmp;
-                costeminus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
-                #gr0, gr1= self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
+                costeminus, hidden_out, final_out = self.feed_forward(x, t)
 
-                #e_minus, _, _ = compute_gradients_cost(t_sample, x_sample, w_tmp, w2, lamda)
-                numericalGrad[k, d] = (costeplus - costeminus) / (2 * epsilon)
+                numeric[k, d] = (costeplus - costeminus) / (2 * e)
 
         # Absolute norm
-        print("The difference estimate for gradient of w0 is : ", np.max(np.abs(gradw0 - numericalGrad)))
+        print("For W0, the maximum difference between the numerical gradient and the one we found is: ", np.max(np.abs(gradw0 - numeric)))
         self.w0 = w0t
-        numericalGrad = np.zeros(gradw1.shape)
-        # Compute all numerical gradient estimates and store them in
-        # the matrix numericalGrad
-        for k in range(numericalGrad.shape[0]):
-            for d in range(numericalGrad.shape[1]):
+        numeric = np.zeros(gradw1.shape)
+
+        for k in range(numeric.shape[0]):
+            for d in range(numeric.shape[1]):
                 # Calculate W1 gradient
                 w_tmp = np.copy(w1)
-                w_tmp[k, d] += epsilon
-                #self.w1 = w_tmp;
-                costeplus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
-                #gr0, gr1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
+                w_tmp[k, d] += e
+                self.w1 = w_tmp;
+                costeplus, hidden_out, final_out = self.feed_forward(x, t)
 
                 w_tmp = np.copy(w1)
-                w_tmp[k, d] -= epsilon
+                w_tmp[k, d] -= e
 
-                #self.w1 = w_tmp;
-                costminus, hidden_out, final_out = self.feed_forward(x_sample, t_sample)
-                #gr0, gr1 = self.compute_gradients_cost(x_sample, hidden_out, final_out, t_sample, 0.01)
+                self.w1 = w_tmp;
+                costminus, hidden_out, final_out = self.feed_forward(x, t)
 
-                numericalGrad[k, d] = (costeplus - costminus) / (2 * epsilon)
+                numeric[k, d] = (costeplus - costminus) / (2 * e)
 
-        # Absolute norm
-        print("The difference estimate for gradient of w1 is : ", np.max(np.abs(gradw1 - numericalGrad)))
+        print("For W1, the maximum difference between the numerical gradient and the one we found is: ", np.max(np.abs(gradw1 - numeric)))
 
+    def testNet(self):
+        correct = 0
+        # first we shuffle the training data
+        self.test_data, self.test_1hv = self.shuffle_data(self.test_data, self.test_1hv)
+        epochs = 1
+        batch = 1
+        for i in range(epochs):
+            # first we shuffle the training data
+            self.test_data, self.test_1hv = self.shuffle_data(self.test_data, self.test_1hv)
+            if batch > len(self.test_data):
+                print("ERROR: batch size is greater than the total number of training data")
+                return None
+
+            begin = 0
+            end = batch
+            cost = None
+
+            while begin < end:
+                data_batch = self.test_data[begin:end]
+                data_batch = np.array([x for x in data_batch])
+                hot_vec = np.array(self.test_1hv[begin:end])
+
+                # print('begin: ' + str(begin) +'\nend: ' + str(end))
+                cost, hidden_out, final_out = self.feed_forward(data_batch, hot_vec)
+                dw0, dw1 = self.computeGrads(data_batch, hidden_out, final_out, hot_vec, 0.01)
+
+                expected = np.argmax(hot_vec[0])
+                predicted = np.argmax(final_out[0])
+
+                print(expected,' ', predicted)
+                #print(predicted)
+
+                if expected == predicted:
+                    correct += 1
+
+                begin = end
+                end += batch
+                if end > len(self.test_data):
+                    end = len(self.test_data)
+
+        print(float(correct)/len(self.test_data))
 
 if __name__ == '__main__':
     net = NeuNet(100,10, func3, func3der)
@@ -272,5 +321,9 @@ if __name__ == '__main__':
     print(func3der(x))
     '''
     #print(softmax(np.array( [ [10,20,30,40], [20,50,45,45], [983,39,57,752], [574,575,597,525] ] )))
-    net.readMnistData('/home/p3150141/Downloads/mnistdata')
-    #net.train_net(100)
+    net.readMnistData('C:/Users/Alexandros/Downloads/mnistdata')
+    net.train_net(100)
+
+    net.testNet()
+
+
