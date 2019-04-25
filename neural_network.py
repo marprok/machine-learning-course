@@ -76,7 +76,10 @@ class NeuNet():
         prevcost = 0
         for i in range(epochs):
             # first we shuffle the training data
-            self.train_data, self.train_1hv = self.shuffle_data(self.train_data, self.train_1hv)
+            if i % 10 == 0:
+                print('shuffling data')
+                self.train_data, self.train_1hv = self.shuffle_data(self.train_data, self.train_1hv)
+
             if self.batch > len(self.train_data):
                 print("ERROR: batch size is greater than the total number of training data")
                 return None
@@ -93,8 +96,8 @@ class NeuNet():
                 cost, hidden_out, final_out = self.feed_forward(data_batch, hot_vec)
                 dw0, dw1 = self.computeGrads(data_batch, hidden_out, final_out, hot_vec, 0.01)
 
-                self.w0 += 0.005*dw0
-                self.w1 += 0.005*dw1
+                self.w0 += 0.001*dw0
+                self.w1 += 0.001*dw1
 
                 begin = end
                 end += self.batch
@@ -106,9 +109,9 @@ class NeuNet():
              #   max_cost = cost
             #diff = np.abs(np.abs(cost) - np.abs(prevcost))
             #print(diff)
-            if cost > -3.0:
-                print('final cost: ', cost, ' epoch: ', i)
-                break
+            #if cost > -3.0:
+              #  print('final cost: ', cost, ' epoch: ', i)
+             #   break
             #prevcost = cost
             print('cost: ',cost,' epoch = ', i)
 
@@ -143,11 +146,12 @@ class NeuNet():
 
 
         self.train_1hv = np.array([x for x in self.train_1hv])
+        print('train y', self.train_1hv.shape)
         self.train_data = np.array([np.array(x) for x in self.train_data])
         self.train_data = self.train_data.astype(float) / 255  # normalize the data
         # the last column of the data matrix is the bias column
         self.train_data = np.hstack((np.ones((self.train_data.shape[0], 1)), self.train_data))
-        print(self.train_data.shape)
+        print('train data', self.train_data.shape)
         # now that we have read the training data, we can initialize the input layer
         self.inlen = len(self.train_data[0])
         # print('inlen: ' + str(self.inlen))
@@ -164,21 +168,21 @@ class NeuNet():
                 #print(line)
                 self.test_data.append(line)
             #print(dict['data'])
-            print(dict['labels'])
+            #print(dict['labels'])
 
             for label in dict['labels']:
                 self.test_1hv.append(
                        np.array([1 if i == label else 0 for i in range(10)]))  # create the one hot vector
-                print(np.array([1 if i == label else 0 for i in range(10)]))
+                #print(np.array([1 if i == label else 0 for i in range(10)]))
         self.test_1hv = np.array([x for x in self.test_1hv])
         self.test_data = np.array([np.array(x) for x in self.test_data])
         self.test_data = self.test_data.astype(float) / 255  # normalize the data
         # the last column of the data matrix is the bias column
         self.test_data = np.hstack((np.ones((self.test_data.shape[0], 1)),
                                     self.test_data))  # +1 col at the start of the array for the bias term
-        print(self.test_data.shape)
-        print(self.w0.shape)
-        print(self.w1.shape)
+        print('test data', self.test_data.shape)
+        #print(self.w0.shape)
+        #print(self.w1.shape)
 
         
     def readMnistData(self, path):
@@ -244,18 +248,17 @@ class NeuNet():
         #self.gradCheck(self.train_data, self.train_1hv)
 
     def computeGrads(self, data_batch, hidden_out, output, onehotvec, lamda = 0):
-        # Calculate gradient for w1
+        # Calculate the gradient for w1
         grad_w1 = (onehotvec - output).T.dot(hidden_out) - lamda * self.w1
         
-        # We remove the bias since z0 is not dependant by w1
+        # remove the bias term
         w1_temp = np.copy(self.w1[:, 1:])
-        
-        # This is the result of the derivative of the activation function
+
         der = self.activation_der(data_batch.dot(self.w0.T))
         
         temp = (onehotvec - output).dot(w1_temp) * der
         
-        # Calculate gradient for w0
+        # Calculate the gradient for w0
         grad_w0 = temp.T.dot(data_batch) - lamda*self.w0
         
         
@@ -381,7 +384,7 @@ class NeuNet():
         print(float(correct)/len(self.test_data))
 
 if __name__ == '__main__':
-    net = NeuNet(100,10, func3, func3der)
+    net = NeuNet(100,10, func3, func3der, 50)
     #print(net.w0)
     #print(net.w1)
 
