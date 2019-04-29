@@ -1,26 +1,25 @@
 import numpy as np
 from os import listdir
 from os.path import isfile, join
-import math
 from random import shuffle
 
 def func1(dot):
-    return math.log(1 + math.exp(dot))
+    return np.log(1 + np.exp(dot))
 
 def func1der(dot):
-    return math.exp(dot)/(1 + math.exp(dot))
+    return np.exp(dot)/(1 + np.exp(dot))
 
 def func2(dot):
-    return (math.exp(dot) - math.exp(-dot))/(math.exp(dot) + math.exp(-dot))
+    return (np.exp(dot) - np.exp(-dot))/(np.exp(dot) + np.exp(-dot))
 
 def func2der(dot):
-    return 1 - math.pow(func2(dot),2)
+    return 1 - ((np.exp(dot) - np.exp(-dot))**2) / ((np.exp(dot) + np.exp(-dot))**2)
 
-def func3(vertex):
-    return np.cos(vertex)
+def func3(dot):
+    return np.cos(dot)
 
-def func3der(vertex):
-    return -1*np.sin(vertex)
+def func3der(dot):
+    return -1*np.sin(dot)
 
 #use by default ax=1, when the array is 2D
 #use ax=0 when the array is 1D
@@ -29,27 +28,12 @@ def softmax( x, ax=1 ):
     p = np.exp( x - m )
     return ( p / np.sum(p,axis=ax,keepdims=True) )
 
-'''def softmax(W, z, k):
-    temp = 0
-    
-    dotk = 0
-    for i in range(W.shape[0]):
-        dot = 0
-        for j in range(len(z)):
-            dot += W[i][j]*z[j]
-        temp += math.exp(dot)
-        if i == k:
-            dotk = dot
-    
-    return math.exp(dotk)/temp
-'''
 class NeuNet():
 
-    def __init__(self, hidlen, outlen, func, der, batch = 100):
+    def __init__(self, hidlen, outlen, afunc, der, batch = 100, lm = 0.01):
         self.hidlen = hidlen # for the bias term
         self.outlen = outlen
-        #self.hidden = np.zeros((1,hidlen))
-        self.activation = func
+        self.activation = afunc
         self.activation_der = der
         self.train = []
         self.train_data = []
@@ -62,6 +46,7 @@ class NeuNet():
         self.w0 = None
         self.batch = batch
         self.epochs = None
+        self.l = lm
 
     def shuffle_data(self, data, hotvec):
         # zip the one hot vector and the training data together
@@ -73,11 +58,14 @@ class NeuNet():
     
     def train_net(self, epochs):
         self.epochs = epochs
-        prevcost = 0
+        if False:
+            self.gradCheck(self.train_data, self.train_1hv)
+            return
+
         for i in range(epochs):
             # first we shuffle the training data
             if i % 10 == 0:
-                print('shuffling data')
+               #print('shuffling data')
                 self.train_data, self.train_1hv = self.shuffle_data(self.train_data, self.train_1hv)
 
             if self.batch > len(self.train_data):
@@ -94,7 +82,7 @@ class NeuNet():
 
                 # print('begin: ' + str(begin) +'\nend: ' + str(end))
                 cost, hidden_out, final_out = self.feed_forward(data_batch, hot_vec)
-                dw0, dw1 = self.computeGrads(data_batch, hidden_out, final_out, hot_vec, 0.01)
+                dw0, dw1 = self.computeGrads(data_batch, hidden_out, final_out, hot_vec)
 
                 self.w0 += 0.001*dw0
                 self.w1 += 0.001*dw1
@@ -104,16 +92,7 @@ class NeuNet():
                 if end > len(self.train_data):
                     end = len(self.train_data)
 
-            #if max_cost < cost:
-
-             #   max_cost = cost
-            #diff = np.abs(np.abs(cost) - np.abs(prevcost))
-            #print(diff)
-            #if cost > -3.0:
-              #  print('final cost: ', cost, ' epoch: ', i)
-             #   break
-            #prevcost = cost
-            print('cost: ',cost,' epoch = ', i)
+          # print('cost: ',cost,' epoch = ', i)
 
     def unpickle(self, file):
         import pickle
@@ -127,9 +106,6 @@ class NeuNet():
         #print(files)
         self.train = [file + '/' + f for f in files if 'data_batch' in f]
         self.test = [file + '/' + f for f in files if 'test_batch' in f]
-
-        #print(self.train)
-        #print(self.test)
 
         for f in self.train:
             dict = self.unpickle(f)
@@ -154,26 +130,21 @@ class NeuNet():
         print('train data', self.train_data.shape)
         # now that we have read the training data, we can initialize the input layer
         self.inlen = len(self.train_data[0])
-        # print('inlen: ' + str(self.inlen))
         self.w0 = np.random.normal(0, 1 / np.sqrt(self.inlen), (
         self.hidlen, self.inlen))  # the 2D array that contains the weights of the first part of the neural network
-        self.w1 = np.random.rand(self.outlen,
-                                 self.hidlen + 1)  # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
 
+        self.w1= np.random.normal(0, 1 / np.sqrt(self.hidlen + 1), (
+            self.outlen, self.hidlen + 1))  # the 2D array that contains the weights of the second part of the neural network
 
         for f in self.test:
             dict = self.unpickle(f)
             temp = dict['data']
             for line in temp:
-                #print(line)
                 self.test_data.append(line)
-            #print(dict['data'])
-            #print(dict['labels'])
 
             for label in dict['labels']:
                 self.test_1hv.append(
                        np.array([1 if i == label else 0 for i in range(10)]))  # create the one hot vector
-                #print(np.array([1 if i == label else 0 for i in range(10)]))
         self.test_1hv = np.array([x for x in self.test_1hv])
         self.test_data = np.array([np.array(x) for x in self.test_data])
         self.test_data = self.test_data.astype(float) / 255  # normalize the data
@@ -181,9 +152,6 @@ class NeuNet():
         self.test_data = np.hstack((np.ones((self.test_data.shape[0], 1)),
                                     self.test_data))  # +1 col at the start of the array for the bias term
         print('test data', self.test_data.shape)
-        #print(self.w0.shape)
-        #print(self.w1.shape)
-
         
     def readMnistData(self, path):
         files = [f for f in listdir(path) if isfile(join(path, f))]
@@ -194,7 +162,6 @@ class NeuNet():
         print(self.test)
         print()
         print(self.train)
-        #lines = []
 
         for f in self.test[:]:  # read only the first training
             num = int(f.split('test')[1][0])
@@ -204,11 +171,9 @@ class NeuNet():
                     self.test_data.append(list(map(int, line.split(' '))))
                     self.test_1hv.append(
                         np.array([1 if i == num else 0 for i in range(10)]))  # create the one hot vector
-                    # lines.append(line.split(' '))
-            # print(lines[3])
+
         self.test_1hv = np.array([x for x in self.test_1hv])
-        # print(self.train_1hv.shape)
-        # print(self.train_1hv)
+
 
         self.test_data = np.array([np.array(x) for x in self.test_data])
         self.test_data = self.test_data.astype(float) / 255  # normalize the data
@@ -220,19 +185,13 @@ class NeuNet():
         
         for f in self.train[:]: # read only the first training
             num = int(f.split('train')[1][0])
-            
-            #print(self.train_1hv)
-            #print('the number is ' + str(num))
+
             with open(join(path,f), 'r') as fl:
                 for line in fl:
                     self.train_data.append(list(map(int, line.split(' '))))
                     self.train_1hv.append(np.array([1 if i == num else 0 for i in range(10)])) # create the one hot vector
-                    #lines.append(line.split(' '))
-        #print(lines[3])
         self.train_1hv = np.array([x for x in self.train_1hv])
-        #print(self.train_1hv.shape)
-        #print(self.train_1hv)
-        
+
         self.train_data = np.array([np.array(x) for x in self.train_data])
         self.train_data = self.train_data.astype(float) / 255 # normalize the data
         # the last column of the data matrix is the bias column
@@ -240,16 +199,15 @@ class NeuNet():
         print(self.train_data.shape)
         # now that we have read the training data, we can initialize the input layer
         self.inlen = len(self.train_data[0])
-        #print('inlen: ' + str(self.inlen))
         self.w0 = np.random.normal(0,1/np.sqrt(self.inlen),(self.hidlen,self.inlen)) # the 2D array that contains the weights of the first part of the neural network
-        self.w1 = np.random.rand(self.outlen,self.hidlen + 1) # the 2D array that contains the weights of the second part of the neural network + 1 for the bias
-
+        self.w1 = np.random.normal(0, 1 / np.sqrt(self.hidlen + 1), (
+            self.outlen,
+            self.hidlen + 1))  # the 2D array that contains the weights of the second part of the neural network
         # gradient check
-        #self.gradCheck(self.train_data, self.train_1hv)
 
-    def computeGrads(self, data_batch, hidden_out, output, onehotvec, lamda = 0):
+    def computeGrads(self, data_batch, hidden_out, output, onehotvec):
         # Calculate the gradient for w1
-        grad_w1 = (onehotvec - output).T.dot(hidden_out) - lamda * self.w1
+        grad_w1 = (onehotvec - output).T.dot(hidden_out) - self.l * self.w1
         
         # remove the bias term
         w1_temp = np.copy(self.w1[:, 1:])
@@ -259,7 +217,7 @@ class NeuNet():
         temp = (onehotvec - output).dot(w1_temp) * der
         
         # Calculate the gradient for w0
-        grad_w0 = temp.T.dot(data_batch) - lamda*self.w0
+        grad_w0 = temp.T.dot(data_batch) - self.l*self.w0
         
         
         return grad_w0, grad_w1
@@ -277,16 +235,11 @@ class NeuNet():
 
         final_out = softmax(temp1)
 
-
-        # print('error: ',error)
         return self.calculate_cost(final_out, hot_vec), hidden_leyer_out, final_out
 
     def calculate_cost(self, y, t):
-        #print(y)
         y = np.log(y)
-        #print(y)
-        l = 0.01
-        return np.sum(y*(t)) - l/2 * (np.linalg.norm(self.w0, 'fro')**2 + np.linalg.norm(self.w1, 'fro')**2)
+        return np.sum(y*(t)) - self.l/2 * (np.linalg.norm(self.w0, 'fro')**2 + np.linalg.norm(self.w1, 'fro')**2)
 
     def gradCheck(self, xarg, targ):
         w0 = self.w0
@@ -299,7 +252,7 @@ class NeuNet():
         w0t = self.w0
 
         cost, hidden_out, final_out = self.feed_forward(x, t)
-        gradw0, gradw1 = self.computeGrads(x, hidden_out, final_out, t, 0.01)
+        gradw0, gradw1 = self.computeGrads(x, hidden_out, final_out, t)
 
         # numeric stores all numerical gradients
         numeric = np.zeros(gradw0.shape)
@@ -343,12 +296,13 @@ class NeuNet():
 
     def testNet(self):
         correct = 0
-        # first we shuffle the training data
+        # first we shuffle the test data
         self.test_data, self.test_1hv = self.shuffle_data(self.test_data, self.test_1hv)
         epochs = 1
         batch = 1
+        finalCost = None
         for i in range(epochs):
-            # first we shuffle the training data
+            # first we shuffle the test data
             self.test_data, self.test_1hv = self.shuffle_data(self.test_data, self.test_1hv)
             if batch > len(self.test_data):
                 print("ERROR: batch size is greater than the total number of training data")
@@ -356,23 +310,18 @@ class NeuNet():
 
             begin = 0
             end = batch
-            cost = None
 
             while begin < end:
                 data_batch = self.test_data[begin:end]
                 data_batch = np.array([x for x in data_batch])
                 hot_vec = np.array(self.test_1hv[begin:end])
 
-                # print('begin: ' + str(begin) +'\nend: ' + str(end))
                 cost, hidden_out, final_out = self.feed_forward(data_batch, hot_vec)
-                dw0, dw1 = self.computeGrads(data_batch, hidden_out, final_out, hot_vec, 0.01)
-
+                finalCost  = cost
                 expected = np.argmax(hot_vec[0])
                 predicted = np.argmax(final_out[0])
-
-                print(expected,' ', predicted)
-                #print(predicted)
-
+                #print(final_out[0])
+                #print(expected,' ', predicted)
                 if expected == predicted:
                     correct += 1
 
@@ -381,27 +330,37 @@ class NeuNet():
                 if end > len(self.test_data):
                     end = len(self.test_data)
 
-        print(float(correct)/len(self.test_data))
+        return float(correct)/len(self.test_data), finalCost
 
 if __name__ == '__main__':
-    net = NeuNet(100,10, func3, func3der, 50)
-    #print(net.w0)
-    #print(net.w1)
 
-    x = 8.323
+    funcs = [(func1, func1der), (func2, func2der), (func3, func3der)]
 
-    '''print(func1(x))
-    print(func1der(x))
-    print(func2(x))
-    print(func2der(x))
-    print(func3(x))
-    print(func3der(x))
-    '''
+    epochs = 20
+
+    hidden = [100, 200, 300]
+    dataSets = ['C:/Users/Alexandros/Downloads/mnistdata', 'C:/Users/Alexandros/Downloads/cifar-10-python/cifar-10-batches-py']
+    with open('C:/Users/Alexandros/Desktop/results.txt', 'w') as f:
+        for isMnist in [True, False]:
+            if isMnist:
+                for size in hidden:
+                    for i in range(len(funcs)):
+                        print('mnist ', size, ' ', i)
+                        net = NeuNet(size, 10, funcs[i][0], funcs[i][1], batch=100, lm=0.01)
+                        net.readMnistData(dataSets[0])
+                        net.train_net(epochs)
+                        accuracy, cost = net.testNet()
+
+                        f.write('mnist(hidden = ' + str(size) + ', activation_function = ' + str(i) + ', batch = 100, lambda = 0.01, epochs = ' + str(epochs) + ', accuracy = ' + str(accuracy) + ', cost = ' + str(cost) +')\n')
+            else:
+                for size in hidden:
+                    for i in range(len(funcs)):
+                        print('cifar ', size, ' ', i)
+                        net = NeuNet(size, 10, funcs[i][0], funcs[i][1], batch=100, lm=0.1)
+                        net.readCIFAR10Data(dataSets[1])
+                        net.train_net(epochs)
+                        accuracy, cost = net.testNet()
+                        f.write('cifar(hidden = ' + str(size) + ', activation_function = ' + str(
+                        i) + ', batch = 100, lambda = 0.1, epochs = ' + str(epochs) + ', accuracy = ' + str(accuracy) + ', cost = ' + str(cost) +')\n')
+
     #print(softmax(np.array( [ [10,20,30,40], [20,50,45,45], [983,39,57,752], [574,575,597,525] ] )))
-    #net.readCIFAR10Data('C:/Users/Alexandros/Downloads/cifar-10-python/cifar-10-batches-py')
-    #net.train_net(100)
-    net.readMnistData('C:/Users/Alexandros/Downloads/mnistdata')
-    net.train_net(100)
-
-    net.testNet()
-
