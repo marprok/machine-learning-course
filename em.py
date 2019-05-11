@@ -95,15 +95,19 @@ def expectation_maximization(X, w, h, K):
         gs_k_old = gs_k
         if dif < 0:
             print('Error occured!\nIterations: ', i)
+            break
         if dif < 0.1:
             print('Converged!\niterations', i)
             kapas = np.argmax(gvals, axis = 1)
             new_img = np.array(list(map(lambda k: mvals[k], kapas)))
+            temp = new_img
             new_img = new_img.reshape(h,w,3)
             print('new image:', new_img.shape)
             print(h,w)
             imgplot = plt.imshow(new_img)
             #plt.show()
+            error = np.sum(np.power(np.linalg.norm(X - temp),2))/X.shape[0]
+            print('error:',error) 
             plt.savefig(str(K) + 'im.jpg')
 
             break
@@ -111,7 +115,7 @@ def expectation_maximization(X, w, h, K):
                 
 if __name__ == '__main__':
     np.random.seed(1993)
-    img, w, h = read_image('im3.jpg')
-    for k in [5, 6]:
+    img, w, h = read_image('im2.jpg')
+    for k in [6]:
         print('K =',k)
         expectation_maximization(img, w, h, k)
