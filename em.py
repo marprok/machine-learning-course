@@ -13,10 +13,14 @@ def mix(sk, x, mk):
     print(mk.shape)
     print(x.shape)
     return (1/np.sqrt(2*np.pi*sk))*np.exp(-(1/(2*sk))*((x - mk)**2))
-    
+
+def l(px):
+    px = np.log(px)
+    return np.sum(px, axis = 0)
+
 def expectation_maximization(X, K):
     # the array that will hold the g values for each x
-    gvals = np.zeros([X.shape[0],K])
+    gvals = np.zeros([X.shape[0],K]) + 0.00001
     sigma_squared = np.random.rand(K,1)
     mvals = np.random.rand(K,X.shape[1])
     pvals = np.full((K,1), 1/K)
@@ -26,49 +30,74 @@ def expectation_maximization(X, K):
     #print(mvals.shape)
     #print(pvals.shape)
     i = 0
-    while i < 10:
+    gs_k_old = np.sum(gvals, axis = 1)
+    while True:
+        i += 1
+        gvals_n = np.zeros([X.shape[0],K])
+        sigma_squared_n = np.zeros([K,1])
+        mvals_n = np.zeros([K,X.shape[1]])
+        pvals_n = np.zeros([K,1])
+        
         # expectation stage
         for k in range(K):
-            gvals[:, k] = pvals[k]*np.prod((1/np.sqrt(2*np.pi*sigma_squared[k]))*\
+            gvals_n[:, k] = pvals[k]*np.prod((1/np.sqrt(2*np.pi*sigma_squared[k]))*\
                       np.exp(-(1/(2*sigma_squared[k]))*((X - mvals[k])**2)), axis = 1) # numpy allows NxD - 1XD = NxD
 
-        gs = np.sum(gvals, axis = 1)
+        gs_k = np.sum(gvals_n, axis = 1)
+        #print('testssss', gs_k.shape)
         #print(gs)
         for k in range(K):
-            gvals[:, k] = gvals[:, k] / gs
+            gvals_n[:, k] = gvals_n[:, k] / gs_k
 
         # test the expectation stage
         #print(np.sum(gvals, axis = 1)[:5])
-        gs = np.sum(gvals,  axis = 0)
-        print('ms shape:', gs.shape)
+        gs_n = np.sum(gvals_n,  axis = 0)
+        
+        #print('ms shape:', gs_n.shape)
         # maximization stage
         for k in range(K):
-            g = np.array(gvals[:, k], ndmin=2).T
+            g = np.array(gvals_n[:, k], ndmin=2).T
             t = np.array(X*g, ndmin = 2)
             #print(t.shape)
             #print(ms[k].shape)
-            mvals[k] = np.sum(t, axis = 0) / gs[k]
+            mvals_n[k] = np.sum(t, axis = 0) / gs_n[k]
 
         #print(mvals)
 
         for k in range(K):
-            temp_dif = X - mvals[k,:]
+            temp_dif = X - mvals_n[k,:]
             temp_dif = np.power(temp_dif, 2)
-            print('temp_dif', temp_dif.shape)
+            #print('temp_dif', temp_dif.shape)
             temp = np.array(np.sum(temp_dif, axis = 1), ndmin=2).T
-            print('temp', temp.shape)
-            temp2 = np.array(gvals[:, k], ndmin=2)
-            print('temp2', temp2.shape)
-            sigma_squared[k] = temp2.dot(temp)/(X.shape[1] * gs[k])
+            #print('temp', temp.shape)
+            temp2 = np.array(gvals_n[:, k], ndmin=2)
+            #print('temp2', temp2.shape)
+            sigma_squared_n[k] = temp2.dot(temp)/(X.shape[1] * gs_n[k])
             #temp = temp *
         #print(sigma_squared)
 
         for k in range(K):
-            pvals[k] = gs[k]/X.shape[0]
+            pvals_n[k] = gs_n[k]/X.shape[0]
         
         i += 1
+        lnew = l(gs_k)
+        lold = l(gs_k_old)
+        dif = lnew - lold
+        print(dif)
+        print('lnew =', lnew,'\nlold =', lold)
+
+        pvals = np.copy(pvals_n)
+        gvals = np.copy(gvals_n)
+        mvals = np.copy(mvals_n)
+        sigma_squared = np.copy(sigma_squared_n)
+        gs_k_old = gs_k
+        if dif < 0:
+            print('Error occured!\nIterations: ', i)
+        if dif < 0.1:
+            print('Converged!\niterations', i)
+            break
 
     
 if __name__ == '__main__':
     img = read_image('im.jpg')
-    expectation_maximization(img, 2)
+    expectation_maximization(img, 8)
