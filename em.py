@@ -1,13 +1,15 @@
 import matplotlib
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
 import numpy as np
 
 def read_image(path):
     img = np.array(mpimg.imread(path))
-    width, height, _ = img.shape
+    print('original:', img.shape)
+    height, width, _ = img.shape
     img = img.reshape(width*height, 3)
     img = img.astype(float) / 255
-    return img
+    return img, width, height
 
 def mix(sk, x, mk):
     print(mk.shape)
@@ -18,7 +20,7 @@ def l(px):
     px = np.log(px)
     return np.sum(px, axis = 0)
 
-def expectation_maximization(X, K):
+def expectation_maximization(X, w, h, K):
     # the array that will hold the g values for each x
     gvals = np.zeros([X.shape[0],K]) + 0.00001
     sigma_squared = np.random.rand(K,1)
@@ -95,9 +97,21 @@ def expectation_maximization(X, K):
             print('Error occured!\nIterations: ', i)
         if dif < 0.1:
             print('Converged!\niterations', i)
+            kapas = np.argmax(gvals, axis = 1)
+            new_img = np.array(list(map(lambda k: mvals[k], kapas)))
+            new_img = new_img.reshape(h,w,3)
+            print('new image:', new_img.shape)
+            print(h,w)
+            imgplot = plt.imshow(new_img)
+            #plt.show()
+            plt.savefig(str(K) + 'im.jpg')
+
             break
 
-    
+                
 if __name__ == '__main__':
-    img = read_image('im.jpg')
-    expectation_maximization(img, 8)
+    np.random.seed(1993)
+    img, w, h = read_image('im3.jpg')
+    for k in [5, 6]:
+        print('K =',k)
+        expectation_maximization(img, w, h, k)
