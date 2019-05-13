@@ -23,8 +23,8 @@ def l(px):
 def expectation_maximization(X, w, h, K):
     # the array that will hold the g values for each x
     gvals = np.zeros([X.shape[0],K]) + 0.00001
-    sigma_squared = np.random.rand(K,1) #np.random.uniform(0.4, 0.8, (K,1)) #np.random.rand(K,1)
-    mvals = np.random.rand(K,X.shape[1]) # np.random.uniform(0, 1, (K,X.shape[1]))#np.random.rand(K,X.shape[1])
+    sigma_squared = np.random.uniform(0.4, 0.8, (K,1)) #np.random.rand(K,1)
+    mvals = np.random.uniform(0, 1, (K,X.shape[1]))#np.random.rand(K,X.shape[1])
     pvals = np.full((K,1), 1/K)
     #print(X.shape)
     #print(gvals.shape)
