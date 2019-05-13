@@ -23,8 +23,8 @@ def l(px):
 def expectation_maximization(X, w, h, K):
     # the array that will hold the g values for each x
     gvals = np.zeros([X.shape[0],K]) + 0.00001
-    sigma_squared = np.random.rand(K,1)
-    mvals = np.random.rand(K,X.shape[1])
+    sigma_squared = np.random.rand(K,1) #np.random.uniform(0.4, 0.8, (K,1)) #np.random.rand(K,1)
+    mvals = np.random.rand(K,X.shape[1]) # np.random.uniform(0, 1, (K,X.shape[1]))#np.random.rand(K,X.shape[1])
     pvals = np.full((K,1), 1/K)
     #print(X.shape)
     #print(gvals.shape)
@@ -42,8 +42,8 @@ def expectation_maximization(X, w, h, K):
         
         # expectation stage
         for k in range(K):
-            gvals_n[:, k] = pvals[k]*np.prod((1/np.sqrt(2*np.pi*sigma_squared[k]))*\
-                      np.exp(-(1/(2*sigma_squared[k]))*((X - mvals[k])**2)), axis = 1) # numpy allows NxD - 1XD = NxD
+            gvals_n[:, k] = pvals[k]*np.prod((1/(np.sqrt(2*np.pi*sigma_squared[k]) + 1e-100))*\
+                      np.exp(-(1/(2*sigma_squared[k] + 1e-100))*((X - mvals[k])**2)), axis = 1) # numpy allows NxD - 1XD = NxD
 
         gs_k = np.sum(gvals_n, axis = 1)
         #print('testssss', gs_k.shape)
@@ -115,7 +115,7 @@ def expectation_maximization(X, w, h, K):
                 
 if __name__ == '__main__':
     np.random.seed(1993)
-    img, w, h = read_image('im2.jpg')
-    for k in [6]:
+    img, w, h = read_image('vg.jpg')
+    for k in [1,2,3,4,5,6]:
         print('K =',k)
         expectation_maximization(img, w, h, k)
